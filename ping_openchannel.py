@@ -25,7 +25,7 @@ RESTART_INTERVAL = 3
 BEGINNING_OF_EPOCH = datetime(1970, 3, 1)
 
 
-def notify(sm, is_system_up, is_mail_at_end):
+def notify(sm, is_system_up, error_message, is_mail_at_end):
     now = datetime.now()
     notified_at = sm.get_notified_at()
     start_now = start_of_day(now)
@@ -86,7 +86,8 @@ def process(base_url, restart_after, is_mail_at_end, sctl_obj_or_str):
     status_log = []
 
     # ping OC and bounce if necessary
-    if sctl.is_system_up():
+    (is_system_up, error_message) = sctl.is_system_up()
+    if is_system_up:
         sm.set_system_status(SystemControl.SYSTEM_UP)
         if system_status_at_startup == SystemControl.SYSTEM_UP:
             # server still up...no comment necessary
@@ -95,21 +96,22 @@ def process(base_url, restart_after, is_mail_at_end, sctl_obj_or_str):
         sm.add_line_to_message_lines(sm.server_label + " is back up")
         if system_status_at_startup == "down":
             # NOTIFY that it's back up
-            notify(sm, sctl.is_system_up(), is_mail_at_end)
+            notify(sm, sctl.is_system_up, error_message, is_mail_at_end)
         if sm.is_notify_cache_exists():
             sm.delete_notify_cache()
             print "notify cache is removed"
         return sm
     else:
         sm.set_system_status(SystemControl.SYSTEM_DOWN)
-        sm.add_line_to_message_lines(sm.server_label + " is not responding...attempting restart")
-        sctl.system_restart()
+        sm.add_line_to_message_lines(sm.server_label + " is not responding")
+        if error_message != None and error_message != '':
+            sm.add_line_to_message_lines(error_message)
 
     # give it a jiffy to rest
     time.sleep(restart_after)
 
-    is_openchannel_up = sctl.is_system_up()
-    if is_openchannel_up:
+    (is_system_up, error_message) = sctl.is_system_up()
+    if is_system_up:
         sm.set_system_status(SystemControl.SYSTEM_UP)
         print sm.server_label + " is up"
         system_status = "restarted"
@@ -121,7 +123,7 @@ def process(base_url, restart_after, is_mail_at_end, sctl_obj_or_str):
         sm.add_line_to_message_lines(sm.server_label + " could not be restarted")
 
     sm.write_notify_cache()
-    notify(sm, sctl.is_system_up(), is_mail_at_end)
+    notify(sm, is_system_up, error_message, is_mail_at_end)
 
     return sm
 

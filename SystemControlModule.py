@@ -75,7 +75,7 @@ class OpenChannelControl(SystemControl):
         if error:
             print error
 
-        return result != None
+        return (error == None, error)
 
     def system_restart(self):
         ssh("root@ford.kinexis.com", "service nginx restart")
@@ -98,11 +98,35 @@ class NdarControl(SystemControl):
         if error:
             print error
 
-        return error == None
+        return (error == None, error)
 
     def system_restart(self):
         ssh("root@ford.kinexis.com", "service nginx restart")
 
+class NdarCredentialControl(SystemControl):
+    def __init__(self, **config_dict):
+        self.base_url = config_dict['base_url']
+        self.url = self.base_url + "/test_credentials"
+
+    def is_system_up(self):
+        result = True
+        (result, error) = read_json(self.url)
+        try:
+            if result:
+                if result['results']['status'] == 'OK':
+                    error = None
+                else:
+                    error = result['results']['error_message']
+        except:
+            error = 'Indeterminate access error'
+
+        if error:
+            print error
+
+        return (error == None, error)
+
+    def system_restart(self):
+        pass
 
 class TestSystemControl(SystemControl):
 
@@ -114,7 +138,7 @@ class TestSystemControl(SystemControl):
             self.no_restart_on_bounce = False
 
     def is_system_up(self):
-        return self.system_status == SystemControl.SYSTEM_UP
+        return (self.system_status == SystemControl.SYSTEM_UP, "")
 
     def system_up(self):
         self.system_status = SystemControl.SYSTEM_UP
